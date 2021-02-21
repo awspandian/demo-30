@@ -1,0 +1,49 @@
+---
+- hosts: demo
+  user: ansible
+  become: true
+  vars:
+    tom_down_url: https://mirrors.estointernet.in/apache/tomcat/tomcat-8/v8.5.63/bin/apache-tomcat-8.5.63.tar.gz
+  tasks:
+    - name: install JDK on Centos
+      yum:
+        name: java-1.8.0-openjdk.x86_64
+        state: present
+      when: ansible_distribution == 'CentOS'
+    - name: Install JDK on Ubuntu
+      apt:
+        name: openjdk-8-jdk
+        state: present
+        update_cache: yes
+      when: ansible_distribution == 'Ubuntu'
+    - name: Download Tomcat
+      get_url:
+        url: "{{tom_down_url}}"
+        dest: /tmp/tomcat-8.tar.gz
+    - name: Add Tomcat Group
+      group:
+        name: tomcat
+        state: present
+    - name: Add tomcat user
+      user:
+        name: tomcat
+        group: tomcat
+        shell: /bin/nologin
+        home: /usr/local/tomcat8
+    - file:
+        path: /tmp/tomcat8
+        state: directory
+    - name: Extract Tomcat
+      unarchive:
+        src: /tmp/tomcat-8.tar.gz
+        dest: /tmp/tomcat8/
+        remote_src: yes
+        list_files: yes
+      register: unarchive_info
+    - debug:
+            msg: "{{unarchive_info.files[0].split('/')[0]}}"
+    - name: Synchronize two directories on one remote host
+      synchronize:
+        src: "/tmp/tomcat8/{{unarchive_info.files[0].split('/')[0]}}/"
+        dest: /usr/local/tomcat8
+      delegate_to: "{{ inventory_hostname }}"
